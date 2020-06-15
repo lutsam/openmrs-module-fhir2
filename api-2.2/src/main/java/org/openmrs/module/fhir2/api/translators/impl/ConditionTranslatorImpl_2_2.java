@@ -12,16 +12,13 @@ package org.openmrs.module.fhir2.api.translators.impl;
 import lombok.AccessLevel;
 import lombok.Setter;
 import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.openmrs.CodedOrFreeText;
-import org.openmrs.Concept;
 import org.openmrs.Condition;
 import org.openmrs.ConditionClinicalStatus;
 import org.openmrs.ConditionVerificationStatus;
 import org.openmrs.User;
 import org.openmrs.annotation.OpenmrsProfile;
-import org.openmrs.module.fhir2.FhirConstants;
 import org.openmrs.module.fhir2.api.translators.ConceptTranslator;
 import org.openmrs.module.fhir2.api.translators.ConditionClinicalStatusTranslator;
 import org.openmrs.module.fhir2.api.translators.ConditionTranslator;
@@ -63,13 +60,17 @@ public class ConditionTranslatorImpl_2_2 implements ConditionTranslator<Conditio
 		fhirCondition.setClinicalStatus(clinicalStatusTranslator.toFhirResource(condition.getClinicalStatus()));
 		fhirCondition.setVerificationStatus(verificationStatusTranslator.toFhirResource(condition.getVerificationStatus()));
 		
-		if (condition.getCondition().getCoded() != null) {
-			fhirCondition.setCode(conceptTranslator.toFhirResource(condition.getCondition().getCoded()));
-		} else {
-			CodeableConcept codeableConcept = new CodeableConcept();
-			codeableConcept.addCoding(
-			    new Coding().setCode(condition.getCondition().getNonCoded()).setSystem(FhirConstants.OPENMRS_URI));
+		/* When condition isn't available in concept dictionary;
+		 * Condition.coded is set to point {@link  https://demo.openmrs.org/openmrs/dictionary/concept.htm?conceptId=5622}
+		 * and a free text is added to Condition.nonCoded
+		 */
+		CodedOrFreeText codedOrFreeTextCondition = condition.getCondition();
+		if (codedOrFreeTextCondition.getNonCoded() != null) {
+			CodeableConcept codeableConcept = conceptTranslator.toFhirResource(codedOrFreeTextCondition.getCoded());
+			codeableConcept.setText(codedOrFreeTextCondition.getNonCoded());
 			fhirCondition.setCode(codeableConcept);
+		} else {
+			fhirCondition.setCode(conceptTranslator.toFhirResource(condition.getCondition().getCoded()));
 		}
 		
 		fhirCondition.setOnset(new DateTimeType().setValue(condition.getOnsetDate()));
@@ -99,16 +100,14 @@ public class ConditionTranslatorImpl_2_2 implements ConditionTranslator<Conditio
 		existingCondition
 		        .setVerificationStatus(verificationStatusTranslator.toOpenmrsType(condition.getVerificationStatus()));
 		
-		if (!condition.getCode().getCoding().isEmpty()) {
-			Concept concept = conceptTranslator.toOpenmrsType(condition.getCode());
-			CodedOrFreeText conditionCodedOrText = new CodedOrFreeText();
-			if (concept == null) {
-				conditionCodedOrText.setNonCoded(condition.getCode().getCoding().get(0).getCode());
-			} else {
-				conditionCodedOrText.setCoded(concept);
-			}
-			existingCondition.setCondition(conditionCodedOrText);
+		CodeableConcept codeableConcept = condition.getCode();
+		CodedOrFreeText conditionCodedOrText = new CodedOrFreeText();
+		if (codeableConcept.hasText()) {
+			conditionCodedOrText.setNonCoded(codeableConcept.getText());
 		}
+		conditionCodedOrText.setCoded(conceptTranslator.toOpenmrsType(codeableConcept));
+		existingCondition.setCondition(conditionCodedOrText);
+		
 		existingCondition.setOnsetDate(condition.getOnsetDateTimeType().getValue());
 		existingCondition.setCreator(practitionerReferenceTranslator.toOpenmrsType(condition.getRecorder()));
 		

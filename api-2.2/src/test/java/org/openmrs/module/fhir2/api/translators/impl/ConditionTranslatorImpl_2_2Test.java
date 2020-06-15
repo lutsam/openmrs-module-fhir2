@@ -66,7 +66,11 @@ public class ConditionTranslatorImpl_2_2Test {
 	
 	private static final Integer CODE = 102309;
 	
-	private static final String CONDITION_NON_CODED = "condition non coded";
+	private static final Integer CONDITION_NON_CODED = 5622;
+	
+	private static final String CONDITION_NON_CODED_TEXT = "condition non coded";
+	
+	private static final String CONDITION_NON_CODED_VALUE = "Other";
 	
 	private static final String CONCEPT_UUID = "31d754f5-3e9e-4ca3-805c-87f97a1f5e4b";
 	
@@ -287,30 +291,47 @@ public class ConditionTranslatorImpl_2_2Test {
 	public void shouldTranslateConditionNonCodedToOpenMrsType() {
 		CodeableConcept codeableConcept = new CodeableConcept();
 		Coding coding = new Coding();
-		coding.setCode(CONDITION_NON_CODED);
+		coding.setCode(String.valueOf(CONDITION_NON_CODED));
+		coding.setDisplay(CONDITION_NON_CODED_VALUE);
+		codeableConcept.setText(CONDITION_NON_CODED_TEXT);
 		codeableConcept.addCoding(coding);
-		when(conceptTranslator.toOpenmrsType(codeableConcept)).thenReturn(null);
+		
+		Concept concept = new Concept();
+		concept.setConceptId(CONDITION_NON_CODED);
 		fhirCondition.setCode(codeableConcept);
+		when(conceptTranslator.toOpenmrsType(codeableConcept)).thenReturn(concept);
 		org.openmrs.Condition condition = conditionTranslator.toOpenmrsType(fhirCondition);
 		assertThat(condition, notNullValue());
+		assertThat(condition.getCondition().getCoded(), equalTo(concept));
 		assertThat(condition.getCondition().getNonCoded(), notNullValue());
-		assertThat(condition.getCondition().getNonCoded(), equalTo(CONDITION_NON_CODED));
+		assertThat(condition.getCondition().getNonCoded(), equalTo(CONDITION_NON_CODED_TEXT));
 	}
 	
 	@Test
 	public void shouldTranslateConditionNonCodedToFhirType() {
 		CodeableConcept codeableConcept = new CodeableConcept();
 		Coding coding = new Coding();
-		coding.setCode(CONDITION_NON_CODED);
+		coding.setCode(String.valueOf(CONDITION_NON_CODED));
+		coding.setDisplay(CONDITION_NON_CODED_VALUE);
+		codeableConcept.setText(CONDITION_NON_CODED_TEXT);
+		;
 		codeableConcept.addCoding(coding);
+		
+		Concept concept = new Concept();
+		concept.setConceptId(CONDITION_NON_CODED);
 		CodedOrFreeText conditionNonCoded = new CodedOrFreeText();
-		conditionNonCoded.setNonCoded(CONDITION_NON_CODED);
+		conditionNonCoded.setCoded(concept);
+		conditionNonCoded.setNonCoded(CONDITION_NON_CODED_TEXT);
 		openmrsCondition.setCondition(conditionNonCoded);
+		
+		when(conceptTranslator.toFhirResource(concept)).thenReturn(codeableConcept);
 		org.hl7.fhir.r4.model.Condition condition = conditionTranslator.toFhirResource(openmrsCondition);
 		assertThat(condition, notNullValue());
 		assertThat(condition.getCode(), notNullValue());
 		assertThat(condition.getCode().getCoding(), not(Collections.emptyList()));
-		assertThat(condition.getCode().getCoding().get(0).getCode(), equalTo(CONDITION_NON_CODED));
+		assertThat(condition.getCode().getCoding().get(0).getCode(), equalTo(CONDITION_NON_CODED.toString()));
+		assertThat(condition.getCode().getCoding().get(0).getDisplay(), equalTo(CONDITION_NON_CODED_VALUE));
+		assertThat(condition.getCode().getText(), equalTo(CONDITION_NON_CODED_TEXT));
 	}
 	
 	@Test
